@@ -71,6 +71,7 @@ namespace StarlightRiver
         public StarlightRiver()
         {
             Instance = this;
+
         }
         public override void UpdateMusic(ref int music, ref MusicPriority priority)
         {
@@ -155,7 +156,7 @@ namespace StarlightRiver
 
                 Ref<Effect> screenRef4 = new Ref<Effect>(GetEffect("Effects/Shockwave"));
                 Terraria.Graphics.Effects.Filters.Scene["ShockwaveFilter"] = new Terraria.Graphics.Effects.Filter(new ScreenShaderData(screenRef4, "ShockwavePass"), Terraria.Graphics.Effects.EffectPriority.VeryHigh);
-                Terraria.Graphics.Effects.Filters.Scene["ShockwaveFilter"].Load();
+                Terraria.Graphics .Effects.Filters.Scene["ShockwaveFilter"].Load();
 
                 Ref<Effect> screenRef3 = new Ref<Effect>(GetEffect("Effects/WaterEffect"));
                 Terraria.Graphics.Effects.Filters.Scene["WaterFilter"] = new Terraria.Graphics.Effects.Filter(new ScreenShaderData(screenRef3, "WaterPass"), Terraria.Graphics.Effects.EffectPriority.VeryHigh);

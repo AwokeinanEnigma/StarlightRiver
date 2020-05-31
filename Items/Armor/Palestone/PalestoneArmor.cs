@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace StarlightRiver.Items.Armor.Palestone
@@ -24,7 +25,7 @@ namespace StarlightRiver.Items.Armor.Palestone
             item.width = 18;
             item.height = 18;
             item.value = 10000;
-            item.rare = 2;
+            item.rare = ItemRarityID.Green;
             item.defense = 2;
         }
         public override void UpdateEquip(Player player)
@@ -47,7 +48,7 @@ namespace StarlightRiver.Items.Armor.Palestone
             item.width = 18;
             item.height = 18;
             item.value = 1;
-            item.rare = 2;
+            item.rare = ItemRarityID.Green;
             item.defense = 3;
         }
         public override void UpdateEquip(Player player)
@@ -62,7 +63,7 @@ namespace StarlightRiver.Items.Armor.Palestone
         {
             player.setBonus = "anyway palestone set bonus i had in mind was that getting kills forms a big stone tablet to spin around the player (not in a circle, more like an orbit (think the overgrowth enemy that throws boulders)) which would provide damage resistance per tablet with a cap of 3, and taking damage would damage the tablets (a tablet can be damaged 3x before breaking)";
             PalestonePlayer palestonePlayer = player.GetModPlayer<PalestonePlayer>();
-            foreach(int i in palestonePlayer.tablets)
+            foreach (int i in palestonePlayer.tablets)
             {
                 if (i > 0)
                 {
@@ -71,21 +72,56 @@ namespace StarlightRiver.Items.Armor.Palestone
             }
         }
     }
+    [AutoloadEquip(EquipType.Legs)]
+    public class PalestoneLegs : ModItem
+    {
+        public override void SetStaticDefaults()
+        {
+            DisplayName.SetDefault("Palestone Leggings");
+            Tooltip.SetDefault("Slightly increases movement speed");
+        }
+
+        public override void SetDefaults()
+        {
+            item.width = 18;
+            item.height = 18;
+            item.value = 1;
+            item.rare = ItemRarityID.Green;
+            item.defense = 2;
+        }
+
+        public override void UpdateEquip(Player player)
+        {
+            player.moveSpeed += 0.1f;
+        }
+    }
     public class PalestonePlayer : ModPlayer
     {
-        public float counter = 0;
+        //this code makes me feel retarded
+
+
+
+        //make a new array, and set it to 3 
+        //y'know fuck this i'm going with my gut and making it an int
+        //fuck you!
+        //nvm can't because i genuinely don't want to fuck with the modifyDrawLayers override
         public int[] tablets = new int[3];
         public override void OnHitNPC(Item item, NPC target, int damage, float knockback, bool crit)
         {
-            if (item.melee)
+            //check if melee and if the target is valid
+            if (item.melee && Helper.IsTargetValid(target))
             {
+                //check if dead
                 if (target.life <= 0)
                 {
                     for (int i = 0; i < tablets.Length; i++)
                     {
-                        if (tablets[i] == 0)
+                        //check if our array is empty
+                        if  (tablets[i] == 0)
                         {
-                            tablets[i] = 3;
+                            tablets[i]++;
+                            mod.Logger.Info(i.ToString());
+                            //crack the loop
                             break;
                         }
                     }
@@ -94,15 +130,26 @@ namespace StarlightRiver.Items.Armor.Palestone
         }
         public override void OnHitNPCWithProj(Projectile proj, NPC target, int damage, float knockback, bool crit)
         {
-            if (proj.melee)
+            if (proj.melee && Helper.IsTargetValid(target))
             {
+                //check if dead
                 if (target.life <= 0)
                 {
                     for (int i = 0; i < tablets.Length; i++)
                     {
+                        //check if our array is empty
                         if (tablets[i] == 0)
                         {
-                            tablets[i] = 3;
+                            tablets[i]++;
+                            mod.Logger.Info(i.ToString());
+                            foreach (int I in tablets)
+                            {
+                                if (i > 0)
+                                {
+                                    player.endurance += 0.1f;
+                                }
+                            }
+                            //crack the loop
                             break;
                         }
                     }
@@ -116,9 +163,19 @@ namespace StarlightRiver.Items.Armor.Palestone
                 if (tablets[i] > 0)
                 {
                     tablets[i]--;
+                    mod.Logger.Info(i.ToString());
+                    //update our shit!
+                    foreach (int I in tablets)
+                    {
+                        if (i > 0)
+                        {
+                            player.endurance += 0.1f;
+                        }
+                    }
                 }
             }
         }
+        //i don't geddit
         public override void ModifyDrawLayers(List<PlayerLayer> layers)
         {
             Action<PlayerDrawInfo> backTarget = s => DrawGlowmasks(s, false); //the Action<T> of our layer. This is the delegate which will actually do the drawing of the layer.
@@ -162,27 +219,5 @@ namespace StarlightRiver.Items.Armor.Palestone
             }
         }
     }
-    [AutoloadEquip(EquipType.Legs)]
-    public class PalestoneLegs : ModItem
-    {
-        public override void SetStaticDefaults()
-        {
-            DisplayName.SetDefault("Palestone Leggings");
-            Tooltip.SetDefault("Slightly increases movement speed");
-        }
 
-        public override void SetDefaults()
-        {
-            item.width = 18;
-            item.height = 18;
-            item.value = 1;
-            item.rare = 2;
-            item.defense = 2;
-        }
-
-        public override void UpdateEquip(Player player)
-        {
-            player.moveSpeed += 0.1f;
-        }
-    }
 }
