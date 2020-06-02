@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StarlightRiver.Abilities;
 using StarlightRiver.Buffs;
 using StarlightRiver.GUI;
@@ -17,7 +18,8 @@ namespace StarlightRiver
         public int Timer { get; private set; }
 
         public bool ivyArmorComplete = false;
-        
+        public bool paleStoneArmorComplete = false;
+
         public bool JustHit = false;
         public int LastHit = 0;
 
@@ -39,6 +41,17 @@ namespace StarlightRiver
         public int MaxPickupTimer = 0;
         public NPC PickupTarget;
 
+        public int[] tablets = new int[3];
+
+        #region buffs and effects
+        public override void ResetEffects()
+        {
+            AnthemDagger = false;
+            GuardDamage = 1;
+            GuardCrit = 0;
+            GuardBuff = 1;
+            GuardRad = 0;
+        }
         public override void PreUpdateBuffs()
         {
 
@@ -53,7 +66,48 @@ namespace StarlightRiver
                 //Main.NewText("Invert: false");
             }
         }
+        #endregion
+        #region OnHit
+        public override void OnHitNPC(Item item, NPC target, int damage, float knockback, bool crit)
+        {
+            //palestone shit
+            if (paleStoneArmorComplete)
+            {
+                if (item.melee && Helper.IsTargetValid(target))
+                {
+                    if (target.life <= 0)
+                    {
+                        for (int i = 0; i < tablets.Length; i++)
+                        {
+                            if (tablets[i] == 0)
+                            {
+                                tablets[i] = 3;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }        
+        public override void OnHitNPCWithProj(Projectile proj, NPC target, int damage, float knockback, bool crit)
+        {
+            if (ivyArmorComplete == true && Timer - LastHit >= 300 && Helper.IsTargetValid(target) && proj.ranged)
+            {
+                if (target.boss)
+                {
+                    target.AddBuff(ModContent.BuffType<Ivy>(), 600);
+                }
+                else
+                {
+                    target.AddBuff(ModContent.BuffType<Ivy>(), 300);
+                    target.AddBuff(ModContent.BuffType<IvySnare>(), 180);
+                }
+                //Gotta balance it somewhere... right?
+            }
+        }
 
+        #endregion
+        #region Update
         public override void PreUpdate()
         {
             if (PickupTarget != null)
@@ -123,15 +177,24 @@ namespace StarlightRiver
             DarkSlow = false;
         }
 
-        public override void ResetEffects()
+        public override void PostUpdate()
         {
-            AnthemDagger = false;
-            GuardDamage = 1;
-            GuardCrit = 0;
-            GuardBuff = 1;
-            GuardRad = 0;
-        }
+            //Main.NewText(player.velocity);
+            if (InvertGrav > 0)
+            {
+                if (InvertGrav == 1 && player.velocity.Y < 5 && player.velocity.Y > -5)
+                {
+                    player.velocity.Y = 0;
+                }
+                --InvertGrav;
+            }
 
+            if (Main.netMode == NetmodeID.MultiplayerClient && player == Main.LocalPlayer) { LegendWorld.rottime += (float)Math.PI / 60; }
+
+            Timer++;
+        }
+        #endregion
+        #region Hurt
         public override bool PreHurt(bool pvp, bool quiet, ref int damage, ref int hitDirection, ref bool crit, ref bool customDamage, ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource)
         {
             //Controls the anthem dagger's mana shield
@@ -160,34 +223,30 @@ namespace StarlightRiver
             }
             return true;
         }
-
-        public override void PostUpdate()
-        {
-            //Main.NewText(player.velocity);
-            if (InvertGrav > 0)
-            {
-                if (InvertGrav == 1 && player.velocity.Y < 5 && player.velocity.Y > -5)
-                {
-                    player.velocity.Y = 0;
-                }
-                --InvertGrav;
-            }
-
-            if (Main.netMode == NetmodeID.MultiplayerClient && player == Main.LocalPlayer) { LegendWorld.rottime += (float)Math.PI / 60; }
-
-            Timer++;
-        }
-
         public override void Hurt(bool pvp, bool quiet, double damage, int hitDirection, bool crit)
         {
             JustHit = true;
             LastHit = Timer;
         }
+        public override void PostHurt(bool pvp, bool quiet, double damage, int hitDirection, bool crit)
+        {
+            if (paleStoneArmorComplete)
+            {
+                for (int i = 0; i < tablets.Length; i++)
+                {
+                    if (tablets[i] > 0)
+                    {
+                        tablets[i]--;
+                    }
+                }
+            }
+        }        
+        #endregion
+        #region misc
         public override void PostUpdateEquips()
         {
             JustHit = false;
         }
-
         public override void ModifyScreenPosition()
         {
             if (ScreenMoveTime > 0 && ScreenMoveTarget != Vector2.Zero)
@@ -247,21 +306,48 @@ namespace StarlightRiver
                     (info.drawPlayer.HeldItem.modItem as Items.IGlowingItem).DrawGlowmask(info);
                 }
             }
-        }
-        public override void OnHitNPCWithProj(Projectile proj, NPC target, int damage, float knockback, bool crit)
-        {
-            if (ivyArmorComplete == true && Timer - LastHit >= 300 && Helper.IsTargetValid(target) && proj.ranged)
+
+            if (paleStoneArmorComplete)
             {
-                if (target.boss)
+                Action<PlayerDrawInfo> backTarget = s => OtherDrawGlowmasks(s, false); //the Action<T> of our layer. This is the delegate which will actually do the drawing of the layer.
+                PlayerLayer backLayer = new PlayerLayer("PalestoneLayer", "Armor Glowmask", backTarget); //Instantiate a new instance of PlayerLayer to insert into the list
+                layers.Insert(layers.IndexOf(layers.First()), backLayer); //Insert the layer at the appropriate index. 
+
+                Action<PlayerDrawInfo> frontTarget = s => OtherDrawGlowmasks(s, true); //the Action<T> of our layer. This is the delegate which will actually do the drawing of the layer.
+                PlayerLayer frontLayer = new PlayerLayer("PalestoneLayer", "Armor Glowmask", frontTarget); //Instantiate a new instance of PlayerLayer to insert into the list
+                layers.Insert(layers.IndexOf(layers.Last()), frontLayer); //Insert the layer at the appropriate index. 
+
+                float getTabletRotation(int currentTablet) => currentTablet / (tablets.FirstOrDefault(x => x == 0) + 1) * 6.28f + (float)player.GetModPlayer<StarlightPlayer>().Timer % 120 / 120 * 6.28f;
+                Vector2 getTabletPosition(int currentTablet)
                 {
-                    target.AddBuff(ModContent.BuffType<Ivy>(), 600);
+                    float dist = 50;
+                    float rot = getTabletRotation(currentTablet);
+
+                    float posX = player.Center.X + (float)(Math.Cos(rot) * dist);
+                    float posY = player.Center.Y + (float)(Math.Sin(rot) * dist) / 2;
+                    return new Vector2(posX, posY);
                 }
-                else
+                void OtherDrawGlowmasks(PlayerDrawInfo info, bool back)
                 {
-                    target.AddBuff(ModContent.BuffType<Ivy>(), 300);
-                    target.AddBuff(ModContent.BuffType<IvySnare>(), 180);
+                    for (int k = 0; k < tablets.Length; k++)
+                    {
+                        float rot = getTabletRotation(k);
+                        if ((back && rot % 6.28f < 3.14f || !back && rot % 6.28f >= 3.14f) && tablets[k] > 0)
+                        {
+                            Vector2 pos = getTabletPosition(k);
+                            Texture2D texture = ModContent.GetTexture("StarlightRiver/Items/Armor/Palestone/Tablet");
+                            Main.playerDrawData.Add(new DrawData(
+                                texture,
+                                pos,  //position
+                                new Microsoft.Xna.Framework.Rectangle?(new Rectangle(0, 0, texture.Width, texture.Height)), //source
+                                Lighting.GetColor((int)pos.X / 16, (int)pos.Y / 16), //color
+                                0, //rotation
+                                new Vector2(texture.Width / 2, texture.Height / 2), //origin
+                                1f, //scale
+                                SpriteEffects.None, 0));
+                        }
+                    }
                 }
-                //Gotta balance it somewhere... right?
             }
         }
         public override void OnEnterWorld(Player player)
@@ -270,3 +356,4 @@ namespace StarlightRiver
         }
     }
 }
+#endregion
